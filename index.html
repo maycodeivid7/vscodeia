@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fb">
+  <title>Entrar — Nexo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #172033;
+      background: #f5f7fb;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      --muted: #758096;
+      --line: #e5e9f1;
+      --accent: #6258e8;
+      --accent-dark: #4b42c9;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(420px, 0.92fr);
+    }
+
+    .story {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      padding: 38px clamp(36px, 6vw, 88px) 32px;
+      color: #fff;
+      background:
+        radial-gradient(ellipse at 82% 18%, rgb(167 154 255 / 52%), transparent 31%),
+        radial-gradient(ellipse at 9% 87%, rgb(40 186 190 / 24%), transparent 35%),
+        linear-gradient(145deg, #262a63 0%, #5148b5 49%, #6e63e4 100%);
+    }
+
+    .story::before,
+    .story::after {
+      position: absolute;
+      content: "";
+      border: 1px solid rgb(255 255 255 / 13%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .story::before {
+      width: 580px;
+      height: 580px;
+      right: -255px;
+      bottom: -180px;
+    }
+
+    .story::after {
+      width: 430px;
+      height: 430px;
+      right: -180px;
+      bottom: -105px;
+    }
+
+    .brand {
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      width: fit-content;
+      color: inherit;
+      font-size: 19px;
+      font-weight: 750;
+      letter-spacing: -0.5px;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid rgb(255 255 255 / 36%);
+      border-radius: 11px;
+      background: rgb(255 255 255 / 15%);
+      font-size: 16px;
+    }
+
+    .story-copy {
+      z-index: 1;
+      max-width: 510px;
+      margin: 8vh 0 10vh;
+    }
+
+    .eyebrow {
+      margin: 0 0 18px;
+      color: #d3d0ff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 490px;
+      margin: 0;
+      font-size: clamp(42px, 5vw, 68px);
+      font-weight: 650;
+      letter-spacing: -3.2px;
+      line-height: 1.08;
+    }
+
+    .story-copy > p:last-child {
+      max-width: 390px;
+      margin: 22px 0 0;
+      color: rgb(255 255 255 / 77%);
+      font-size: 16px;
+      line-height: 1.75;
+    }
+
+    .quote {
+      z-index: 1;
+      max-width: 440px;
+      margin: 0;
+      padding-left: 18px;
+      border-left: 2px solid rgb(255 255 255 / 55%);
+      color: rgb(255 255 255 / 86%);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .quote cite {
+      display: block;
+      margin-top: 9px;
+      color: #fff;
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 650;
+    }
+
+    .login-side {
+      display: grid;
+      place-items: center;
+      padding: 42px 28px;
+      background: #fff;
+    }
+
+    .login-card {
+      width: min(100%, 410px);
+    }
+
+    .mobile-brand { display: none; }
+
+    h2 {
+      margin: 0;
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -1.15px;
+    }
+
+    .intro {
+      margin: 9px 0 30px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .field { margin-top: 19px; }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #30394d;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    input[type="email"],
+    input[type="password"],
+    input[type="text"] {
+      width: 100%;
+      height: 49px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      outline: none;
+      background: #fff;
+      color: #172033;
+      font: inherit;
+      font-size: 14px;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    input::placeholder { color: #a4acba; }
+
+    input[type="email"]:focus,
+    input[type="password"]:focus,
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgb(98 88 232 / 12%);
+    }
+
+    .password-wrap { position: relative; }
+
+    .password-wrap input { padding-right: 48px; }
+
+    .password-toggle {
+      position: absolute;
+      top: 50%;
+      right: 12px;
+      display: grid;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      transform: translateY(-50%);
+      place-items: center;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #7d8799;
+      cursor: pointer;
+    }
+
+    .password-toggle:hover { background: #f2f3f8; }
+    .password-toggle:focus-visible,
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible {
+      outline: 3px solid rgb(98 88 232 / 35%);
+      outline-offset: 2px;
+    }
+
+    .password-toggle svg { width: 18px; height: 18px; }
+
+    .form-options {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 17px 0 22px;
+      font-size: 12px;
+    }
+
+    .remember {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      color: #626d81;
+      font-weight: 450;
+      cursor: pointer;
+    }
+
+    .remember input {
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    a {
+      color: var(--accent);
+      font-weight: 650;
+      text-decoration: none;
+    }
+
+    a:hover { color: var(--accent-dark); text-decoration: underline; }
+
+    .submit {
+      width: 100%;
+      height: 49px;
+      border: 0;
+      border-radius: 9px;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 5px 12px rgb(98 88 232 / 20%);
+      transition: background 150ms ease, transform 150ms ease;
+    }
+
+    .submit:hover { transform: translateY(-1px); background: var(--accent-dark); }
+    .submit:active { transform: translateY(0); }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 24px 0;
+      color: #9aa2b1;
+      font-size: 11px;
+    }
+
+    .divider::before,
+    .divider::after {
+      height: 1px;
+      flex: 1;
+      background: var(--line);
+      content: "";
+    }
+
+    .google-button {
+      display: flex;
+      width: 100%;
+      height: 47px;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #fff;
+      color: #30394d;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: background 150ms ease, border-color 150ms ease;
+    }
+
+    .google-button:hover { border-color: #cbd1dd; background: #fafbfe; }
+    .google-button svg { width: 17px; height: 17px; }
+
+    .signup {
+      margin: 27px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .notice {
+      min-height: 18px;
+      margin: 13px 0 0;
+      color: #a03b3b;
+      font-size: 12px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .footer-note {
+      margin: 26px 0 0;
+      color: #a0a7b5;
+      font-size: 11px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    @media (max-width: 820px) {
+      body { grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr); }
+      .story { padding: 30px; }
+      h1 { font-size: clamp(38px, 5vw, 52px); }
+    }
+
+    @media (max-width: 680px) {
+      body { display: block; background: #fff; }
+      .story { display: none; }
+      .login-side {
+        min-height: 100vh;
+        align-items: start;
+        padding: 34px 24px;
+      }
+      .login-card { width: min(100%, 410px); margin: 0 auto; padding-top: 12px; }
+      .mobile-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 44px;
+        color: #272d49;
+        font-size: 17px;
+        font-weight: 750;
+        text-decoration: none;
+      }
+      .mobile-brand .brand-mark {
+        border-color: #e7e5ff;
+        background: #f0efff;
+        color: var(--accent);
+      }
+      h2 { font-size: 28px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <aside class="story" aria-label="Conheça o Nexo">
+    <a class="brand" href="#" aria-label="Nexo, página inicial">
+      <span class="brand-mark" aria-hidden="true">n</span>
+      <span>nexo</span>
+    </a>
+    <div class="story-copy">
+      <p class="eyebrow">Seu espaço, suas ideias</p>
+      <h1>Boas ideias merecem um lugar.</h1>
+      <p>Organize seus projetos, acompanhe o que importa e faça acontecer — tudo em um só lugar.</p>
+    </div>
+    <blockquote class="quote">
+      “O Nexo trouxe clareza para o nosso dia a dia. Agora a equipe sabe exatamente qual é o próximo passo.”
+      <cite>Marina Costa · Product Designer</cite>
+    </blockquote>
+  </aside>
+
+  <main class="login-side">
+    <section class="login-card" aria-labelledby="login-title">
+      <a class="mobile-brand" href="#" aria-label="Nexo, página inicial">
+        <span class="brand-mark" aria-hidden="true">n</span>
+        <span>nexo</span>
+      </a>
+      <h2 id="login-title">Boas-vindas de volta</h2>
+      <p class="intro">Entre na sua conta para continuar de onde parou.</p>
+
+      <form id="login-form">
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input id="email" name="email" type="email" placeholder="voce@exemplo.com" autocomplete="email" required>
+        </div>
+
+        <div class="field">
+          <label for="password">Senha</label>
+          <div class="password-wrap">
+            <input id="password" name="password" type="password" placeholder="Digite sua senha" autocomplete="current-password" required>
+            <button class="password-toggle" id="password-toggle" type="button" aria-label="Mostrar senha" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-options">
+          <label class="remember" for="remember">
+            <input id="remember" name="remember" type="checkbox">
+            Manter conectado
+          </label>
+          <a href="mailto:suporte@nexo.example?subject=Redefinir%20senha">Esqueceu a senha?</a>
+        </div>
+
+        <button class="submit" type="submit">Entrar</button>
+        <p class="notice" id="form-notice" role="status" aria-live="polite"></p>
+      </form>
+
+      <div class="divider" aria-hidden="true">ou continue com</div>
+      <button class="google-button" id="google-button" type="button">
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z" transform="translate(0 4) scale(1)"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.25 5.48-4.72 7.18l7.62 5.91c4.45-4.11 7.14-10.16 7.14-17.56Z"/>
+          <path fill="#FBBC05" d="M10.53 28.59a14.4 14.4 0 0 1 0-9.18l-7.98-6.19a23.95 23.95 0 0 0 0 21.56l7.98-6.19Z" transform="translate(0 4)"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.8l-7.62-5.91c-2.12 1.42-4.84 2.26-8.28 2.26-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z" transform="translate(0 -4)"/>
+        </svg>
+        Google
+      </button>
+
+      <p class="signup">Ainda não tem uma conta? <a href="mailto:suporte@nexo.example?subject=Criar%20conta">Criar conta</a></p>
+      <p class="footer-note">Ao continuar, você concorda com nossos <a href="#termos">Termos de uso</a> e <a href="#privacidade">Política de privacidade</a>.</p>
+    </section>
+  </main>
+
+  <script>
+    const passwordInput = document.querySelector("#password");
+    const passwordToggle = document.querySelector("#password-toggle");
+    const form = document.querySelector("#login-form");
+    const notice = document.querySelector("#form-notice");
+
+    passwordToggle.addEventListener("click", () => {
+      const showing = passwordInput.type === "password";
+      passwordInput.type = showing ? "text" : "password";
+      passwordToggle.setAttribute("aria-label", showing ? "Ocultar senha" : "Mostrar senha");
+      passwordToggle.setAttribute("aria-pressed", String(showing));
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      notice.textContent = "A interface está pronta, mas a autenticação ainda não foi conectada.";
+    });
+
+    document.querySelector("#google-button").addEventListener("click", () => {
+      notice.textContent = "O acesso com Google ainda não foi configurado.";
+    });
+  </script>
+</body>
+</html>
