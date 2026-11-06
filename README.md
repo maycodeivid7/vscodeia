@@ -1,21 +1,37 @@
-# API de reservas — Nexo
+# Reservas de salas — Nexo
 
-Backend REST em Node.js, Express e MongoDB para cadastro de salas, reservas e consulta de disponibilidade.
+Aplicação de gerenciamento de salas e reservas acadêmicas. O frontend usa React e Vite; a API REST usa Node.js, Express e MongoDB.
 
 ## Requisitos
 
 - Node.js 20 ou superior;
 - MongoDB configurado como **replica set**. As operações de criação e alteração de reservas usam transações para evitar conflitos simultâneos.
 
-Configure o MongoDB e copie `.env.example` para `.env`, ajustando `MONGODB_URI` e, se necessário, `CLIENT_ORIGIN`. Instale as dependências e inicie a API:
+Configure o MongoDB e copie `.env.example` para `.env`, ajustando `MONGODB_URI` e, se necessário, `CLIENT_ORIGIN`. Instale as dependências:
 
 ```sh
 npm install
-npm run seed
+```
+
+Para desenvolvimento, rode a API em um terminal e o frontend em outro:
+
+```sh
+npm start
+npm run dev
+```
+
+O frontend fica disponível em `http://localhost:5173` e encaminha chamadas `/api` para `http://localhost:3000`. A API requer MongoDB replica set acessível pela URI configurada. O frontend informa quando a API ou o banco não estão disponíveis.
+
+Para gerar e servir a versão de produção:
+
+```sh
+npm run build
 npm start
 ```
 
-O seed lê `data/dados-exemplo.json` e insere registros somente quando seus IDs ainda não existem; pode ser executado novamente sem sobrescrever dados existentes. A API fica disponível em `http://localhost:3000`.
+O Express serve os arquivos compilados de `dist`. Para carregar os dados fictícios iniciais, execute `npm run seed`; o seed é idempotente e não sobrescreve registros existentes.
+
+O painel permite cadastrar, editar e remover salas; criar, editar, filtrar, aprovar e cancelar reservas; e consultar a disponibilidade antes de enviar uma solicitação. A API permanece responsável por validar capacidade e conflitos, inclusive em requisições simultâneas. Não há autenticação implementada no backend, portanto o painel não simula login ou controle de acesso.
 
 ## Endpoints
 

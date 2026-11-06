@@ -1,5 +1,6 @@
 const cors = require('cors');
 const express = require('express');
+const path = require('node:path');
 const apiRoutes = require('./routes');
 const { notFoundHandler, errorHandler } = require('./middleware/error-handler');
 
@@ -12,6 +13,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '100kb' }));
 app.use('/api', apiRoutes);
+app.use(express.static(path.join(__dirname, '..', 'dist')));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
