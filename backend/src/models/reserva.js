@@ -3,7 +3,7 @@ const { randomUUID } = require('node:crypto');
 const { RESERVATION_STATUSES } = require('../utils/reservation-rules');
 
 const reservaSchema = new mongoose.Schema({
-  _id: { type: String, default: randomUUID },
+  _id: { type: String, default: () => randomUUID() },
   salaId: { type: String, ref: 'Sala', required: true, index: true },
   data: { type: String, required: true },
   inicio: { type: String, required: true },

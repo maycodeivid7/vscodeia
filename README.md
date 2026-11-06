@@ -7,11 +7,22 @@ Aplicação de gerenciamento de salas e reservas acadêmicas. O frontend usa Rea
 - Node.js 20 ou superior;
 - MongoDB configurado como **replica set**. As operações de criação e alteração de reservas usam transações para evitar conflitos simultâneos.
 
-O código está dividido em `frontend/` (React/Vite) e `backend/` (Express/MongoDB). Configure o MongoDB e copie `backend/.env.example` para `backend/.env`, ajustando `MONGODB_URI` e, se necessário, `CLIENT_ORIGIN`. Instale as dependências na raiz:
+O código está dividido em `frontend/` (React/Vite) e `backend/` (Express/MongoDB). Instale as dependências na raiz:
 
 ```sh
 npm install
 ```
+
+## Ambiente local
+
+O MongoDB local usa Docker Compose, replica set `rs0` e um volume persistente. A porta fica disponível somente na máquina local. Inicie o banco:
+
+```sh
+docker compose up -d mongo
+docker compose ps
+```
+
+O arquivo `backend/.env.example` contém a URI local padrão. Copie-o para `backend/.env` antes de iniciar a API e ajuste os valores conforme necessário. Esse arquivo local não deve ser commitado.
 
 Para desenvolvimento, rode a API em um terminal e o frontend em outro:
 
@@ -20,7 +31,9 @@ npm start
 npm run dev
 ```
 
-O frontend fica disponível em `http://localhost:5173` e encaminha chamadas `/api` para `http://localhost:3000`. A API requer MongoDB replica set acessível pela URI configurada. O frontend informa quando a API ou o banco não estão disponíveis.
+O frontend fica disponível em `http://localhost:5173` e encaminha chamadas `/api` para `http://localhost:3000`. O frontend informa quando a API ou o banco não estão disponíveis. Para popular o banco local com os dados de exemplo, execute `npm run seed`.
+
+Para parar o banco mantendo os dados, execute `docker compose down`. Evite `docker compose down -v`, pois isso também apaga o volume local e os dados.
 
 Para gerar e servir a versão de produção:
 

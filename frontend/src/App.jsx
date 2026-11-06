@@ -287,9 +287,10 @@ export default function App() {
 
   async function saveRoom(data) {
     const current = roomForm;
+    const isEditing = Boolean(current?._id);
     const saved = await runAction(
-      () => current ? api.updateRoom(current._id, data) : api.createRoom(data),
-      current ? 'Sala atualizada.' : 'Sala cadastrada.',
+      () => isEditing ? api.updateRoom(current._id, data) : api.createRoom(data),
+      isEditing ? 'Sala atualizada.' : 'Sala cadastrada.',
     );
     if (!saved) throw new Error('Não foi possível salvar a sala. Confira a mensagem exibida.');
     setRoomForm(null);
@@ -297,9 +298,10 @@ export default function App() {
 
   async function saveReservation(data) {
     const current = reservationForm;
+    const isEditing = Boolean(current?._id);
     const saved = await runAction(
-      () => current ? api.updateReservation(current._id, data) : api.createReservation(data),
-      current ? 'Reserva atualizada.' : 'Solicitação de reserva registrada.',
+      () => isEditing ? api.updateReservation(current._id, data) : api.createReservation(data),
+      isEditing ? 'Reserva atualizada.' : 'Solicitação de reserva registrada.',
     );
     if (!saved) throw new Error('Não foi possível salvar a reserva. Confira a mensagem exibida.');
     setReservationForm(null);
