@@ -1,29 +1,19 @@
 {
-  "name": "nexo-reserva-salas-api",
+  "name": "nexo-reserva-salas",
   "version": "1.0.0",
   "private": true,
-  "description": "API REST para gerenciamento de salas e reservas acadêmicas",
-  "main": "src/server.js",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "start": "node src/server.js",
-    "seed": "node src/seed.js",
-    "test": "node --test"
+    "dev": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "start": "npm run start --workspace backend",
+    "seed": "npm run seed --workspace backend",
+    "test": "npm test --workspace backend"
   },
   "engines": {
     "node": ">=20"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "mongoose": "^8.9.5"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "vite": "^6.4.5"
   }
 }

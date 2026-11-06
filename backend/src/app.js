@@ -13,7 +13,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '100kb' }));
 app.use('/api', apiRoutes);
-app.use(express.static(path.join(__dirname, '..', 'dist')));
+app.use(express.static(path.join(__dirname, '..', '..', 'frontend', 'dist')));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
