@@ -44,7 +44,9 @@ npm start
 
 O Express serve os arquivos compilados de `frontend/dist`. Para carregar os dados fictícios iniciais, execute `npm run seed`; o seed é idempotente e não sobrescreve registros existentes.
 
-O painel permite cadastrar, editar e remover salas; criar, editar, filtrar, aprovar e cancelar reservas; e consultar a disponibilidade antes de enviar uma solicitação. A API permanece responsável por validar capacidade e conflitos, inclusive em requisições simultâneas.
+O painel permite cadastrar, editar e remover salas; criar, editar, filtrar, aprovar, recusar e cancelar reservas; e consultar a disponibilidade antes de enviar uma solicitação. A API permanece responsável por validar capacidade e conflitos, inclusive em requisições simultâneas.
+
+A central de notificações mantém o histórico no MongoDB e recebe atualizações em tempo real por WebSocket enquanto a sessão estiver ativa. Ela avisa solicitantes e administradores sobre solicitações, aprovações, recusas, alterações e cancelamentos. Marcar avisos como lidos não os remove.
 
 ## Contas, autenticação e permissões
 
@@ -69,6 +71,10 @@ Em produção, defina `NODE_ENV=production` para habilitar o atributo `Secure` n
 - `PATCH /api/auth/password` — altera a senha da conta autenticada e revoga suas sessões;
 - `GET /api/auth/users` — lista contas (administrador);
 - `POST /api/auth/users` — cria conta (administrador; `nome`, `email`, `senha`, `papel`);
+- `GET /api/notifications` — lista notificações da conta autenticada e total não lido;
+- `PATCH /api/notifications/:id/read` — marca uma notificação própria como lida;
+- `PATCH /api/notifications/read-all` — marca todas as notificações próprias como lidas;
+- `GET /api/notifications/stream` (WebSocket) — entrega atualizações de notificação em tempo real;
 - `GET /api/salas` — lista salas;
 - `POST /api/salas` — cadastra sala (`nome`, `andar`, `capacidade`, `recursos`);
 - `GET /api/salas/:id` — consulta sala;
@@ -81,9 +87,9 @@ Em produção, defina `NODE_ENV=production` para habilitar o atributo `Secure` n
 - `PATCH /api/reservas/:id` — atualiza campos da reserva;
 - `DELETE /api/reservas/:id` — cancela a reserva, sem apagar seu histórico.
 
-Uma reserva exige `salaId`, `data`, `inicio`, `fim`, `responsavel`, `finalidade` e `quantidadeParticipantes`. `situacao` aceita `pendente`, `aprovada` ou `cancelada` e assume `pendente` quando omitida.
+Uma reserva exige `salaId`, `data`, `inicio`, `fim`, `responsavel`, `finalidade` e `quantidadeParticipantes`. `situacao` aceita `pendente`, `aprovada`, `recusada` ou `cancelada` e assume `pendente` quando omitida.
 
-As reservas pendentes e aprovadas bloqueiam horários sobrepostos; canceladas não. O término é exclusivo: uma reserva pode começar exatamente quando outra termina. A capacidade da sala é validada em cada criação e alteração. Respostas de erro usam o formato `{ "erro": "mensagem" }`; conflitos de agenda retornam HTTP 409.
+As reservas pendentes e aprovadas bloqueiam horários sobrepostos; recusadas e canceladas não. O término é exclusivo: uma reserva pode começar exatamente quando outra termina. A capacidade da sala é validada em cada criação e alteração. Respostas de erro usam o formato `{ "erro": "mensagem" }`; conflitos de agenda retornam HTTP 409.
 
 ## Testes
 
@@ -91,4 +97,4 @@ As reservas pendentes e aprovadas bloqueiam horários sobrepostos; canceladas n�
 npm test
 ```
 
-Os testes automatizados do backend verificam validações e regras de intervalo. Para usar a API e o seed, é necessário ter MongoDB replica set acessível pela URI configurada.
+Os testes automatizados do backend verificam autenticação, mensagens de notificação, situações e regras de intervalo. Para usar a API e o seed, é necessário ter MongoDB replica set acessível pela URI configurada.

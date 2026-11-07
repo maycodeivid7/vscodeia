@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 
 const today = () => {
@@ -12,13 +12,34 @@ const pageNames = {
   reservas: 'Reservas',
   salas: 'Salas',
   usuarios: 'Usuários',
+  notificacoes: 'Notificações',
   conta: 'Minha conta',
+};
+
+const reservationStatusLabels = {
+  pendente: 'Pendente',
+  aprovada: 'Aprovada',
+  recusada: 'Recusada',
+  cancelada: 'Cancelada',
+};
+
+const notificationEventLabels = {
+  created: 'Nova solicitação',
+  approved: 'Reserva aprovada',
+  rejected: 'Reserva recusada',
+  edited: 'Reserva alterada',
+  cancelled: 'Reserva cancelada',
 };
 
 function formatDate(value) {
   if (!value) return '—';
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeZone: 'UTC' })
     .format(new Date(`${value}T12:00:00Z`));
+}
+
+function formatDateTime(value) {
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })
+    .format(new Date(value));
 }
 
 function roomName(rooms, id) {
@@ -179,6 +200,7 @@ function ReservationForm({ initial, rooms, user, onSave, onCancel, saving }) {
               <select value={form.situacao} onChange={(event) => change('situacao', event.target.value)}>
                 <option value="pendente">Pendente</option>
                 <option value="aprovada">Aprovada</option>
+                <option value="recusada">Recusada</option>
                 <option value="cancelada">Cancelada</option>
               </select>
             </label>}
@@ -212,14 +234,14 @@ function ReservationCard({ reservation, rooms, user, onEdit, onCancel, onStatusC
     <article className="reservation-card">
       <div className="reservation-time"><strong>{reservation.inicio}</strong><span>até {reservation.fim}</span></div>
       <div className="reservation-main">
-        <div className="reservation-title"><h3>{reservation.finalidade}</h3><span className={`status status-${reservation.situacao}`}>{reservation.situacao}</span></div>
+        <div className="reservation-title"><h3>{reservation.finalidade}</h3><span className={`status status-${reservation.situacao}`}>{reservationStatusLabels[reservation.situacao]}</span></div>
         <p className="reservation-room">{roomName(rooms, reservation.salaId)} <span aria-hidden="true">·</span> {reservation.responsavel}</p>
         <p className="reservation-meta">{formatDate(reservation.data)} <span aria-hidden="true">·</span> {reservation.quantidadeParticipantes} participantes</p>
       </div>
       <div className="reservation-actions">
         {user.papel === 'admin' && reservation.situacao !== 'cancelada' && (
           <select aria-label={`Situação da reserva ${reservation.finalidade}`} value={reservation.situacao} disabled={busy} onChange={(event) => onStatusChange(reservation, event.target.value)}>
-            <option value="pendente">Pendente</option><option value="aprovada">Aprovada</option><option value="cancelada">Cancelada</option>
+            <option value="pendente">Pendente</option><option value="aprovada">Aprovada</option><option value="recusada">Recusada</option><option value="cancelada">Cancelada</option>
           </select>
         )}
         {canManage && reservation.situacao !== 'cancelada' && <button className="text-button" type="button" disabled={busy} onClick={() => onEdit(reservation)}>Editar</button>}
@@ -386,12 +408,61 @@ function PasswordForm({ onSave, saving }) {
   );
 }
 
+function NotificationCenter({
+  notifications,
+  unreadCount,
+  loading,
+  error,
+  socketConnected,
+  onRead,
+  onReadAll,
+  onOpenReservation,
+}) {
+  return (
+    <section className="section-block page-section">
+      <div className="section-heading">
+        <div><p className="eyebrow">ATIVIDADE DA SUA CONTA</p><h2>Notificações <span className="heading-count">{unreadCount}</span></h2></div>
+        <div className="notification-heading-actions">
+          <span className={`realtime-status ${socketConnected ? 'connected' : ''}`} role="status">{socketConnected ? 'Tempo real conectado' : 'Reconectando…'}</span>
+          {unreadCount > 0 && <button className="text-button" type="button" onClick={onReadAll}>Marcar todas como lidas</button>}
+        </div>
+      </div>
+      <ErrorMessage>{error}</ErrorMessage>
+      {loading ? <div className="loading-state" role="status">Carregando notificações…</div> : notifications.length ? (
+        <div className="notification-list">
+          {notifications.map((notification) => (
+            <article className={`notification-card ${notification.lidaEm ? '' : 'unread'}`} key={notification._id}>
+              <span className="notification-dot" aria-hidden="true" />
+              <div className="notification-copy">
+                <strong>{notificationEventLabels[notification.evento] || 'Atualização de reserva'}</strong>
+                <p>{notification.mensagem}</p>
+                <time dateTime={notification.createdAt}>{formatDateTime(notification.createdAt)}</time>
+              </div>
+              <div className="notification-actions">
+                <button className="text-button" type="button" onClick={() => onOpenReservation(notification)}>{notification.lidaEm ? 'Ver reservas' : 'Ver e marcar como lida'}</button>
+                {!notification.lidaEm && <button className="text-button" type="button" onClick={() => onRead(notification)}>Marcar como lida</button>}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state"><span className="empty-icon" aria-hidden="true">♧</span><h3>Nenhuma notificação</h3><p>As mudanças nas suas reservas aparecerão aqui.</p></div>
+      )}
+    </section>
+  );
+}
+
 function Dashboard({ user, onLogout, onPasswordChanged }) {
   const isAdmin = user.papel === 'admin';
   const [page, setPage] = useState('inicio');
   const [rooms, setRooms] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [users, setUsers] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState('');
+  const [socketConnected, setSocketConnected] = useState(false);
   const [apiOnline, setApiOnline] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -402,6 +473,8 @@ function Dashboard({ user, onLogout, onPasswordChanged }) {
   const [reservationForm, setReservationForm] = useState(null);
   const [userForm, setUserForm] = useState(false);
   const [filters, setFilters] = useState({ situacao: '', data: '' });
+  const notificationsRef = useRef([]);
+  const notificationIdsRef = useRef(new Set());
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -425,6 +498,117 @@ function Dashboard({ user, onLogout, onPasswordChanged }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const applyNotificationList = useCallback((result) => {
+    const currentById = new Map(notificationsRef.current.map((item) => [item._id, item]));
+    const responseIds = new Set(result.notifications.map((item) => item._id));
+    let unreadAdjustment = 0;
+    const merged = result.notifications.map((item) => {
+      const current = currentById.get(item._id);
+      if (!current) return item;
+      if (!item.lidaEm && current.lidaEm) unreadAdjustment -= 1;
+      if (item.lidaEm && !current.lidaEm) unreadAdjustment += 1;
+      return current.lidaEm ? current : item;
+    });
+    for (const item of notificationsRef.current) {
+      if (!responseIds.has(item._id)) {
+        merged.push(item);
+        if (!item.lidaEm) unreadAdjustment += 1;
+      }
+    }
+    merged.sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
+    notificationsRef.current = merged;
+    notificationIdsRef.current = new Set(merged.map((item) => item._id));
+    setNotifications(merged);
+    setUnreadCount(Math.max(0, result.unreadCount + unreadAdjustment));
+  }, []);
+
+  const loadNotifications = useCallback(async () => {
+    setNotificationsLoading(true);
+    setNotificationsError('');
+    try {
+      applyNotificationList(await api.notifications());
+    } catch (loadError) {
+      setNotificationsError(loadError.message);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, [applyNotificationList]);
+
+  useEffect(() => {
+    let active = true;
+    let socket;
+    let reconnectTimer;
+    let reconnectDelay = 1000;
+    loadNotifications();
+
+    function connect() {
+      if (!active) return;
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      socket = new WebSocket(`${protocol}//${window.location.host}/api/notifications/stream`);
+      socket.onopen = () => {
+        if (!active) return;
+        setSocketConnected(true);
+        reconnectDelay = 1000;
+        loadNotifications();
+      };
+      socket.onmessage = (event) => {
+        if (!active) return;
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch {
+          setNotificationsError('A conexão enviou uma notificação inválida.');
+          return;
+        }
+        if (message.type === 'notification' && message.notification) {
+          const item = message.notification;
+          if (!notificationIdsRef.current.has(item._id)) {
+            notificationIdsRef.current.add(item._id);
+            if (!item.lidaEm) setUnreadCount((count) => count + 1);
+          }
+          notificationsRef.current = [
+            item,
+            ...notificationsRef.current.filter((current) => current._id !== item._id),
+          ].sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
+          setNotifications(notificationsRef.current);
+        } else if (message.type === 'notification-read') {
+          const wasUnread = notificationsRef.current.some(
+            (item) => item._id === message.notificationId && !item.lidaEm,
+          );
+          notificationsRef.current = notificationsRef.current.map((item) => (
+            item._id === message.notificationId ? { ...item, lidaEm: message.lidaEm } : item
+          ));
+          setNotifications(notificationsRef.current);
+          if (wasUnread) setUnreadCount((count) => Math.max(0, count - 1));
+        } else if (message.type === 'notifications-read-all') {
+          notificationsRef.current = notificationsRef.current.map((item) => (
+            item.lidaEm ? item : { ...item, lidaEm: message.lidaEm }
+          ));
+          setNotifications(notificationsRef.current);
+          setUnreadCount(0);
+        }
+      };
+      socket.onclose = (event) => {
+        if (!active) return;
+        setSocketConnected(false);
+        if (event.code === 4401) {
+          window.dispatchEvent(new Event('nexo:unauthorized'));
+          return;
+        }
+        reconnectTimer = window.setTimeout(connect, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+      };
+      socket.onerror = () => socket.close();
+    }
+
+    connect();
+    return () => {
+      active = false;
+      window.clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, [loadNotifications]);
+
   const loadUsers = useCallback(async () => {
     try {
       setUsers(await api.listUsers());
@@ -444,7 +628,46 @@ function Dashboard({ user, onLogout, onPasswordChanged }) {
     && (!filters.data || reservation.data === filters.data)
   )), [filters, reservations]);
   const pendingCount = reservations.filter((reservation) => reservation.situacao === 'pendente').length;
-  const todayReservations = reservations.filter((reservation) => reservation.data === today() && reservation.situacao !== 'cancelada');
+  const todayReservations = reservations.filter((reservation) => (
+    reservation.data === today() && ['pendente', 'aprovada'].includes(reservation.situacao)
+  ));
+
+  async function markNotificationRead(notification) {
+    try {
+      const updated = await api.markNotificationRead(notification._id);
+      const current = notificationsRef.current.find((item) => item._id === updated._id);
+      const wasUnread = current && !current.lidaEm;
+      notificationsRef.current = notificationsRef.current.map((item) => (
+        item._id === updated._id ? updated : item
+      ));
+      setNotifications(notificationsRef.current);
+      if (wasUnread) setUnreadCount((count) => Math.max(0, count - 1));
+    } catch (readError) {
+      setNotificationsError(readError.message);
+    }
+  }
+
+  async function markAllNotificationsRead() {
+    try {
+      const result = await api.markAllNotificationsRead();
+      notificationsRef.current = notificationsRef.current.map((item) => (
+        item.lidaEm ? item : { ...item, lidaEm: result.lidaEm }
+      ));
+      setNotifications(notificationsRef.current);
+      setUnreadCount(0);
+    } catch (readError) {
+      setNotificationsError(readError.message);
+    }
+  }
+
+  function openNotificationReservation(notification) {
+    if (!notification.lidaEm) {
+      markNotificationRead(notification);
+    }
+    setPage('reservas');
+    setFilters({ data: '', situacao: '' });
+    setError('');
+  }
 
   async function runAction(action, successMessage) {
     setSaving(true);
@@ -549,12 +772,14 @@ function Dashboard({ user, onLogout, onPasswordChanged }) {
             ['inicio', '⌂', 'Visão geral'],
             ['reservas', '▦', 'Reservas'],
             ['salas', '▤', 'Salas'],
+            ['notificacoes', '♧', 'Notificações'],
             ...(isAdmin ? [['usuarios', '♙', 'Usuários']] : []),
             ['conta', '⚙', 'Minha conta'],
           ].map(([key, icon, label]) => (
             <button key={key} className={`nav-link ${page === key ? 'active' : ''}`} type="button" aria-current={page === key ? 'page' : undefined} onClick={() => { setPage(key); setError(''); setNotice(''); }}>
               <span className="nav-icon" aria-hidden="true">{icon}</span>{label}
               {key === 'reservas' && pendingCount > 0 && <span className="nav-count">{pendingCount}</span>}
+              {key === 'notificacoes' && unreadCount > 0 && <span className="nav-count">{unreadCount}</span>}
             </button>
           ))}
         </nav>
@@ -622,11 +847,24 @@ function Dashboard({ user, onLogout, onPasswordChanged }) {
               {reservationForm !== null && <ReservationForm key={reservationForm._id || reservationForm.salaId || 'new-reservation'} initial={reservationForm._id ? reservationForm : null} rooms={rooms} user={user} onSave={saveReservation} onCancel={() => setReservationForm(null)} saving={saving} />}
               <div className="filter-bar">
                 <label className="filter-field">Data <input type="date" value={filters.data} onChange={(event) => setFilters({ ...filters, data: event.target.value })} /></label>
-                <label className="filter-field">Situação <select value={filters.situacao} onChange={(event) => setFilters({ ...filters, situacao: event.target.value })}><option value="">Todas</option><option value="pendente">Pendente</option><option value="aprovada">Aprovada</option><option value="cancelada">Cancelada</option></select></label>
+                <label className="filter-field">Situação <select value={filters.situacao} onChange={(event) => setFilters({ ...filters, situacao: event.target.value })}><option value="">Todas</option><option value="pendente">Pendente</option><option value="aprovada">Aprovada</option><option value="recusada">Recusada</option><option value="cancelada">Cancelada</option></select></label>
                 {(filters.data || filters.situacao) && <button className="text-button clear-filters" type="button" onClick={() => setFilters({ data: '', situacao: '' })}>Limpar filtros</button>}
               </div>
               {visibleReservations.length ? <div className="reservation-list">{visibleReservations.map((reservation) => <ReservationCard key={reservation._id} reservation={reservation} rooms={rooms} user={user} busy={busyId === reservation._id} onEdit={(item) => setReservationForm(item)} onCancel={cancelReservation} onStatusChange={updateStatus} />)}</div> : <div className="empty-state"><span className="empty-icon">◷</span><h3>Nenhuma reserva encontrada</h3><p>{reservations.length ? 'Tente ajustar os filtros selecionados.' : 'As novas solicitações aparecerão aqui.'}</p><button className="button button-primary" type="button" onClick={() => setReservationForm({})}>Criar primeira reserva</button></div>}
             </section>
+          )}
+
+          {!loading && page === 'notificacoes' && (
+            <NotificationCenter
+              notifications={notifications}
+              unreadCount={unreadCount}
+              loading={notificationsLoading}
+              error={notificationsError}
+              socketConnected={socketConnected}
+              onRead={markNotificationRead}
+              onReadAll={markAllNotificationsRead}
+              onOpenReservation={openNotificationReservation}
+            />
           )}
 
           {!loading && page === 'usuarios' && isAdmin && (

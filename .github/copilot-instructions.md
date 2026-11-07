@@ -14,7 +14,7 @@ O projeto está organizado em `frontend/` (React e Vite) e `backend/` (Node.js, 
 
 A autenticação por e-mail e senha, sessões em cookie `HttpOnly`, criação de contas por administradores e autorização de papéis `admin` e `solicitante` estão implementadas no backend e no frontend. A primeira conta administrativa é criada pelo comando `npm run create-admin`.
 
-A autenticação com Google e as notificações ainda não estão implementadas. Não as apresente como funcionais.
+A autenticação com Google ainda não está implementada. As notificações internas em tempo real estão implementadas, com histórico persistido e leitura por usuário.
 
 Ao implementar novas funcionalidades, diferencie claramente o código existente, as funcionalidades efetivamente implementadas e os componentes ainda planejados.
 
@@ -66,7 +66,7 @@ O banco de dados deverá armazenar as informações relacionadas a:
 - Usuários;
 - Salas e espaços acadêmicos;
 - Reservas;
-- Dados necessários para notificações, caso esse recurso seja implementado.
+- Notificações persistidas e o estado de leitura por usuário.
 
 Defina estruturas de dados coerentes com os requisitos do sistema.
 
@@ -120,6 +120,7 @@ As situações permitidas são:
 
 - `pendente`;
 - `aprovada`;
+- `recusada`;
 - `cancelada`.
 
 O sistema deverá permitir consultar as reservas e acompanhar suas respectivas situações.
@@ -136,6 +137,8 @@ Reservas canceladas não deverão bloquear a sala.
 
 Reservas pendentes e aprovadas deverão ser consideradas conforme a política de disponibilidade definida para o sistema. Na ausência de uma regra diferente, considere ambas como ocupações que impedem uma nova reserva conflitante.
 
+Reservas recusadas também não bloqueiam a sala.
+
 ### 3.4. Autenticação e Notificações
 
 A autenticação local por e-mail e senha está implementada. Não há cadastro público: o primeiro administrador é inicializado pelo comando local; depois, administradores criam contas. Senhas são armazenadas com scrypt; sessões revogáveis são persistidas no MongoDB e entregues em cookies `HttpOnly`.
@@ -144,7 +147,7 @@ Todos os endpoints de salas e reservas exigem sessão. Solicitantes podem consul
 
 A autenticação com Google não deverá ser apresentada como funcional enquanto não existir uma integração real com o provedor.
 
-As notificações deverão informar os usuários sobre alterações relevantes nas reservas, quando esse recurso for desenvolvido.
+As notificações internas persistidas devem informar solicitantes e administradores sobre solicitações, aprovações, recusas, alterações e cancelamentos. A entrega em tempo real usa WebSocket autenticado e não substitui a autorização da API.
 
 ---
 
@@ -182,11 +185,12 @@ Cada reserva deverá possuir uma das seguintes situações:
 
 - `pendente`: solicitação aguardando decisão;
 - `aprovada`: reserva confirmada;
+- `recusada`: solicitação não aprovada;
 - `cancelada`: reserva cancelada.
 
 O sistema deverá impedir valores diferentes dos estados permitidos.
 
-Reservas canceladas não deverão impedir novas reservas para o mesmo período.
+Reservas recusadas e canceladas não deverão impedir novas reservas para o mesmo período.
 
 ### 4.4. Validação dos Horários
 
@@ -446,13 +450,14 @@ O Sistema de Reserva de Salas deverá evoluir para oferecer:
 - Registro do nome, andar, capacidade e recursos das salas;
 - Cadastro e gerenciamento de reservas;
 - Registro da sala, data, horários, responsável, finalidade, situação e quantidade de participantes;
-- Situações de reserva limitadas a `pendente`, `aprovada` e `cancelada`;
+- Situações de reserva limitadas a `pendente`, `aprovada`, `recusada` e `cancelada`;
 - Prevenção de conflitos de horário para a mesma sala;
 - Validação da capacidade máxima;
 - Validação de datas e horários;
 - Consulta de disponibilidade;
 - Persistência dos dados no MongoDB;
 - Comunicação entre React e backend por APIs REST;
+- Notificações internas persistidas e entregues em tempo real por WebSocket;
 - Backend Node.js com Express.js organizado em camadas;
 - Interface responsiva e acessível;
 - Pelo menos três salas e cinco reservas fictícias para testes;

@@ -1,6 +1,7 @@
 const AppError = require('./app-error');
 
-const RESERVATION_STATUSES = ['pendente', 'aprovada', 'cancelada'];
+const RESERVATION_STATUSES = ['pendente', 'aprovada', 'recusada', 'cancelada'];
+const ACTIVE_RESERVATION_STATUSES = ['pendente', 'aprovada'];
 const ROOM_FIELDS = ['nome', 'andar', 'capacidade', 'recursos'];
 const RESERVATION_FIELDS = [
   'salaId',
@@ -158,13 +159,14 @@ function assertValidTimeRange(inicio, fim) {
 function hasTimeConflict(first, second) {
   return first.salaId === second.salaId
     && first.data === second.data
-    && first.situacao !== 'cancelada'
-    && second.situacao !== 'cancelada'
+    && ACTIVE_RESERVATION_STATUSES.includes(first.situacao)
+    && ACTIVE_RESERVATION_STATUSES.includes(second.situacao)
     && first.inicio < second.fim
     && second.inicio < first.fim;
 }
 
 module.exports = {
+  ACTIVE_RESERVATION_STATUSES,
   RESERVATION_STATUSES,
   assertValidTimeRange,
   hasTimeConflict,

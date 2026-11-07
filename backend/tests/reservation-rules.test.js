@@ -58,6 +58,7 @@ test('reservas consecutivas não conflitam, mas sobreposição ativa conflita', 
   assert.equal(hasTimeConflict(first, { ...first, inicio: '11:00', fim: '12:00' }), false);
   assert.equal(hasTimeConflict(first, { ...first, inicio: '10:30', fim: '11:30' }), true);
   assert.equal(hasTimeConflict(first, { ...first, situacao: 'cancelada' }), false);
+  assert.equal(hasTimeConflict(first, { ...first, situacao: 'recusada' }), false);
 });
 
 test('rejeita situação fora dos valores permitidos e campos desconhecidos', () => {
@@ -73,4 +74,18 @@ test('rejeita situação fora dos valores permitidos e campos desconhecidos', ()
   };
   assert.throws(() => validateReservationInput(reservation), /situação/i);
   assert.throws(() => validateReservationInput({ ...reservation, situacao: 'pendente', extra: true }), /não permitido/i);
+});
+
+test('aceita situação recusada como não bloqueante', () => {
+  const reservation = validateReservationInput({
+    salaId: 'sala-1',
+    data: '2026-11-03',
+    inicio: '10:00',
+    fim: '11:00',
+    responsavel: 'Ana',
+    finalidade: 'Aula',
+    quantidadeParticipantes: 10,
+    situacao: 'recusada',
+  });
+  assert.equal(reservation.situacao, 'recusada');
 });

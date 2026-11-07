@@ -168,6 +168,11 @@ async function login(emailInput, password) {
 }
 
 async function getSession(token) {
+  const session = await getSessionDetails(token);
+  return session?.user || null;
+}
+
+async function getSessionDetails(token) {
   if (!token) {
     return null;
   }
@@ -179,7 +184,7 @@ async function getSession(token) {
     return null;
   }
   const user = await User.findOne({ _id: session.usuarioId, ativo: true }).lean();
-  return user ? publicUser(user) : null;
+  return user ? { user: publicUser(user), expiraEm: session.expiraEm } : null;
 }
 
 async function revokeSession(token) {
@@ -217,6 +222,7 @@ module.exports = {
   createUser,
   changePassword,
   getSession,
+  getSessionDetails,
   hashPassword,
   listUsers,
   login,

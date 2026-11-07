@@ -5,7 +5,11 @@ const mongoose = require('mongoose');
 const { connectDatabase } = require('./config/database');
 const Sala = require('./models/sala');
 const Reserva = require('./models/reserva');
-const { validateReservationInput, validateRoomInput } = require('./utils/reservation-rules');
+const {
+  ACTIVE_RESERVATION_STATUSES,
+  validateReservationInput,
+  validateRoomInput,
+} = require('./utils/reservation-rules');
 
 async function seed() {
   await connectDatabase();
@@ -54,11 +58,11 @@ async function seed() {
         throw new Error(`A reserva "${reservationId}" excede a capacidade da sala.`);
       }
 
-      if (reservation.situacao !== 'cancelada') {
+      if (ACTIVE_RESERVATION_STATUSES.includes(reservation.situacao)) {
         const conflict = await Reserva.exists({
           salaId: reservation.salaId,
           data: reservation.data,
-          situacao: { $in: ['pendente', 'aprovada'] },
+          situacao: { $in: ACTIVE_RESERVATION_STATUSES },
           inicio: { $lt: reservation.fim },
           fim: { $gt: reservation.inicio },
         }).session(session);

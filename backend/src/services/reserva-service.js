@@ -1,7 +1,12 @@
 const Reserva = require('../models/reserva');
 const Sala = require('../models/sala');
+const notificationService = require('./notification-service');
+const notificationHub = require('../realtime/notification-hub');
 const AppError = require('../utils/app-error');
+const { reservationNotificationEvent } = require('../utils/notification-rules');
 const {
+  ACTIVE_RESERVATION_STATUSES,
+  RESERVATION_STATUSES,
   assertValidTimeRange,
   isValidDate,
   isValidTime,
@@ -40,14 +45,14 @@ function assertCapacity(room, participants) {
 }
 
 async function assertNoConflict(data, session, excludedId) {
-  if (data.situacao === 'cancelada') {
+  if (!ACTIVE_RESERVATION_STATUSES.includes(data.situacao)) {
     return;
   }
 
   const criteria = {
     salaId: data.salaId,
     data: data.data,
-    situacao: { $in: ['pendente', 'aprovada'] },
+    situacao: { $in: ACTIVE_RESERVATION_STATUSES },
     inicio: { $lt: data.fim },
     fim: { $gt: data.inicio },
   };
@@ -76,7 +81,7 @@ async function listReservations(filters, user) {
     criteria.data = filters.data;
   }
   if (filters.situacao) {
-    if (!['pendente', 'aprovada', 'cancelada'].includes(filters.situacao)) {
+    if (!RESERVATION_STATUSES.includes(filters.situacao)) {
       throw new AppError('Filtro situacao inválido.');
     }
     criteria.situacao = filters.situacao;
@@ -102,14 +107,18 @@ async function createReservation(payload, user) {
     : { ...payload, responsavel: user.nome, situacao: 'pendente' };
   const data = validateReservationInput(input);
   data.usuarioId = user.id;
-  return Reserva.db.transaction(async (session) => {
+  await notificationService.initialize();
+  const result = await Reserva.db.transaction(async (session) => {
     const room = await lockRoom(session, data.salaId);
     await assertCapacity(room, data.quantidadeParticipantes);
     await assertNoConflict(data, session);
     const reservation = new Reserva(data);
     await reservation.save({ session });
-    return reservation;
+    const notifications = await notificationService.createForReservation(session, reservation, 'created');
+    return { notifications, reservation };
   });
+  notificationHub.publishNotifications(result.notifications);
+  return result.reservation;
 }
 
 async function updateReservation(id, payload, user, { requesterCancellation = false } = {}) {
@@ -119,7 +128,8 @@ async function updateReservation(id, payload, user, { requesterCancellation = fa
       || Object.hasOwn(changes, 'responsavel'))) {
     throw new AppError('Solicitantes não podem alterar a situação ou o responsável da reserva.', 403);
   }
-  return Reserva.db.transaction(async (session) => {
+  await notificationService.initialize();
+  const result = await Reserva.db.transaction(async (session) => {
     const criteria = user.papel === 'admin' ? { _id: id } : { _id: id, usuarioId: user.id };
     const current = await Reserva.findOne(criteria).session(session);
     if (!current) {
@@ -128,14 +138,24 @@ async function updateReservation(id, payload, user, { requesterCancellation = fa
 
     const data = { ...reservationData(current), ...changes };
     assertValidTimeRange(data.inicio, data.fim);
+    const changed = Object.keys(data).some((field) => data[field] !== current[field]);
+    if (!changed) {
+      return { notifications: [], reservation: current };
+    }
+
     const room = await lockRoom(session, data.salaId);
     await assertCapacity(room, data.quantidadeParticipantes);
     await assertNoConflict(data, session, id);
 
+    const previousStatus = current.situacao;
     Object.assign(current, data);
     await current.save({ session });
-    return current;
+    const event = reservationNotificationEvent(previousStatus, data.situacao);
+    const notifications = await notificationService.createForReservation(session, current, event);
+    return { notifications, reservation: current };
   });
+  notificationHub.publishNotifications(result.notifications);
+  return result.reservation;
 }
 
 async function cancelReservation(id, user) {
@@ -159,7 +179,7 @@ async function getAvailability(roomId, query, user) {
   const conflicts = await Reserva.find({
     salaId: roomId,
     data,
-    situacao: { $in: ['pendente', 'aprovada'] },
+    situacao: { $in: ACTIVE_RESERVATION_STATUSES },
     inicio: { $lt: fim },
     fim: { $gt: inicio },
   }).sort({ inicio: 1 }).lean();

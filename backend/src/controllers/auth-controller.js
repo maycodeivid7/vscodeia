@@ -1,4 +1,5 @@
 const authService = require('../services/auth-service');
+const notificationHub = require('../realtime/notification-hub');
 const { SESSION_COOKIE } = require('../middleware/auth');
 
 async function login(req, res) {
@@ -12,6 +13,9 @@ async function login(req, res) {
 
 async function logout(req, res) {
   await authService.revokeSession(req.sessionToken);
+  if (req.user) {
+    notificationHub.disconnectSession(req.sessionToken);
+  }
   res.clearCookie(SESSION_COOKIE, authService.sessionCookieOptions());
   res.status(204).end();
 }
@@ -30,6 +34,7 @@ async function listUsers(req, res) {
 
 async function changePassword(req, res) {
   await authService.changePassword(req.user.id, req.body?.senhaAtual, req.body?.novaSenha);
+  notificationHub.disconnectUser(req.user.id);
   res.clearCookie(SESSION_COOKIE, authService.sessionCookieOptions());
   res.status(204).end();
 }
