@@ -11,6 +11,8 @@ const pageNames = {
   inicio: 'Visão geral',
   reservas: 'Reservas',
   salas: 'Salas',
+  usuarios: 'Usuários',
+  conta: 'Minha conta',
 };
 
 function formatDate(value) {
@@ -86,7 +88,7 @@ function RoomForm({ initial, onSave, onCancel, saving }) {
   );
 }
 
-function ReservationForm({ initial, rooms, onSave, onCancel, saving }) {
+function ReservationForm({ initial, rooms, user, onSave, onCancel, saving }) {
   const [formError, setFormError] = useState('');
   const [availability, setAvailability] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -95,7 +97,7 @@ function ReservationForm({ initial, rooms, onSave, onCancel, saving }) {
     data: initial?.data || today(),
     inicio: initial?.inicio || '09:00',
     fim: initial?.fim || '10:00',
-    responsavel: initial?.responsavel || '',
+    responsavel: initial?.responsavel || user.nome,
     finalidade: initial?.finalidade || '',
     quantidadeParticipantes: initial?.quantidadeParticipantes || '',
     situacao: initial?.situacao || 'pendente',
@@ -128,11 +130,16 @@ function ReservationForm({ initial, rooms, onSave, onCancel, saving }) {
   async function submit(event) {
     event.preventDefault();
     setFormError('');
+    const payload = {
+      ...form,
+      quantidadeParticipantes: Number(form.quantidadeParticipantes),
+    };
+    if (user.papel !== 'admin') {
+      delete payload.responsavel;
+      delete payload.situacao;
+    }
     try {
-      await onSave({
-        ...form,
-        quantidadeParticipantes: Number(form.quantidadeParticipantes),
-      });
+      await onSave(payload);
     } catch (error) {
       setFormError(error.message);
     }
@@ -166,15 +173,15 @@ function ReservationForm({ initial, rooms, onSave, onCancel, saving }) {
               <input required type="time" value={form.fim} onChange={(event) => change('fim', event.target.value)} />
             </label>
             <label className="field">Responsável
-              <input required maxLength="100" value={form.responsavel} onChange={(event) => change('responsavel', event.target.value)} placeholder="Nome completo" />
+              <input required maxLength="100" value={form.responsavel} readOnly={user.papel !== 'admin'} onChange={(event) => change('responsavel', event.target.value)} placeholder="Nome completo" />
             </label>
-            <label className="field">Situação
+            {user.papel === 'admin' && <label className="field">Situação
               <select value={form.situacao} onChange={(event) => change('situacao', event.target.value)}>
                 <option value="pendente">Pendente</option>
                 <option value="aprovada">Aprovada</option>
                 <option value="cancelada">Cancelada</option>
               </select>
-            </label>
+            </label>}
             <label className="field field-wide">Finalidade
               <input required maxLength="200" value={form.finalidade} onChange={(event) => change('finalidade', event.target.value)} placeholder="Ex.: Aula de laboratório" />
             </label>
@@ -198,8 +205,9 @@ function ReservationForm({ initial, rooms, onSave, onCancel, saving }) {
   );
 }
 
-function ReservationCard({ reservation, rooms, onEdit, onCancel, onStatusChange, busy }) {
+function ReservationCard({ reservation, rooms, user, onEdit, onCancel, onStatusChange, busy }) {
   const [confirming, setConfirming] = useState(false);
+  const canManage = user.papel === 'admin' || reservation.usuarioId === user.id;
   return (
     <article className="reservation-card">
       <div className="reservation-time"><strong>{reservation.inicio}</strong><span>até {reservation.fim}</span></div>
@@ -209,13 +217,13 @@ function ReservationCard({ reservation, rooms, onEdit, onCancel, onStatusChange,
         <p className="reservation-meta">{formatDate(reservation.data)} <span aria-hidden="true">·</span> {reservation.quantidadeParticipantes} participantes</p>
       </div>
       <div className="reservation-actions">
-        {reservation.situacao !== 'cancelada' && (
+        {user.papel === 'admin' && reservation.situacao !== 'cancelada' && (
           <select aria-label={`Situação da reserva ${reservation.finalidade}`} value={reservation.situacao} disabled={busy} onChange={(event) => onStatusChange(reservation, event.target.value)}>
             <option value="pendente">Pendente</option><option value="aprovada">Aprovada</option><option value="cancelada">Cancelada</option>
           </select>
         )}
-        {reservation.situacao !== 'cancelada' && <button className="text-button" type="button" disabled={busy} onClick={() => onEdit(reservation)}>Editar</button>}
-        {reservation.situacao !== 'cancelada' && (
+        {canManage && reservation.situacao !== 'cancelada' && <button className="text-button" type="button" disabled={busy} onClick={() => onEdit(reservation)}>Editar</button>}
+        {canManage && reservation.situacao !== 'cancelada' && (
           confirming ? (
             <span className="confirm-actions"><span>Cancelar reserva?</span><button className="text-button danger-text" type="button" disabled={busy} onClick={() => onCancel(reservation)}>Confirmar</button><button className="text-button" type="button" onClick={() => setConfirming(false)}>Voltar</button></span>
           ) : <button className="text-button danger-text" type="button" disabled={busy} onClick={() => setConfirming(true)}>Cancelar</button>
@@ -225,10 +233,165 @@ function ReservationCard({ reservation, rooms, onEdit, onCancel, onStatusChange,
   );
 }
 
-export default function App() {
+function LoginPage({ onLogin, error, onClearError }) {
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    onClearError();
+    setSubmitting(true);
+    try {
+      await onLogin({ email, senha });
+    } catch {
+      // The parent displays the returned authentication error in the form.
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="auth-page">
+      <aside className="auth-story">
+        <a className="brand" href="#" onClick={(event) => event.preventDefault()}>
+          <span className="brand-mark" aria-hidden="true">n</span><span>nexo</span>
+        </a>
+        <div className="auth-story-copy">
+          <p className="eyebrow">ESPAÇO ACADÊMICO</p>
+          <h1>Boas ideias merecem um lugar.</h1>
+          <p>Entre para consultar espaços e organizar as reservas da sua instituição.</p>
+        </div>
+        <p className="auth-story-note">Acesso restrito a contas cadastradas pela instituição.</p>
+      </aside>
+      <section className="auth-panel" aria-labelledby="login-title">
+        <div className="auth-card">
+          <a className="auth-mobile-brand brand" href="#" onClick={(event) => event.preventDefault()}>
+            <span className="brand-mark" aria-hidden="true">n</span><span>nexo</span>
+          </a>
+          <p className="eyebrow">SUA INSTITUIÇÃO, EM UM SÓ LUGAR</p>
+          <h2 id="login-title">Boas-vindas</h2>
+          <p className="auth-intro">Entre na sua conta para continuar.</p>
+          <ErrorMessage>{error}</ErrorMessage>
+          <form onSubmit={submit}>
+            <label className="field auth-field">E-mail
+              <input required type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
+            </label>
+            <label className="field auth-field">Senha
+              <input required type="password" autoComplete="current-password" value={senha} onChange={(event) => setSenha(event.target.value)} />
+            </label>
+            <button className="button button-primary auth-submit" type="submit" disabled={submitting}>{submitting ? 'Entrando…' : 'Entrar'}</button>
+            <p className="auth-help" role="note">Não tem acesso? Peça a um administrador da instituição para criar sua conta.</p>
+          </form>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function UserForm({ onSave, onCancel, saving }) {
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({ nome: '', email: '', senha: '', papel: 'solicitante' });
+  const [confirmation, setConfirmation] = useState('');
+
+  async function submit(event) {
+    event.preventDefault();
+    setError('');
+    if (form.senha !== confirmation) {
+      setError('As senhas não conferem.');
+      return;
+    }
+    try {
+      await onSave(form);
+    } catch (saveError) {
+      setError(saveError.message);
+    }
+  }
+
+  return (
+    <form className="form-card" onSubmit={submit}>
+      <div className="form-heading">
+        <div><p className="eyebrow">ACESSO AO NEXO</p><h3>Criar conta</h3></div>
+        <button className="icon-button" type="button" aria-label="Fechar formulário" onClick={onCancel}>×</button>
+      </div>
+      <ErrorMessage>{error}</ErrorMessage>
+      <div className="form-grid">
+        <label className="field">Nome completo
+          <input required minLength="2" maxLength="80" autoComplete="name" value={form.nome} onChange={(event) => setForm({ ...form, nome: event.target.value })} />
+        </label>
+        <label className="field">E-mail institucional
+          <input required type="email" maxLength="254" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+        </label>
+        <label className="field">Senha inicial
+          <input required type="password" minLength="12" maxLength="128" autoComplete="new-password" value={form.senha} onChange={(event) => setForm({ ...form, senha: event.target.value })} />
+          <span className="field-hint">Mínimo de 12 caracteres.</span>
+        </label>
+        <label className="field">Confirmar senha
+          <input required type="password" minLength="12" maxLength="128" autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
+        </label>
+        <label className="field">Papel
+          <select value={form.papel} onChange={(event) => setForm({ ...form, papel: event.target.value })}>
+            <option value="solicitante">Solicitante</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </label>
+      </div>
+      <div className="form-actions">
+        <button className="button button-quiet" type="button" onClick={onCancel}>Cancelar</button>
+        <button className="button button-primary" type="submit" disabled={saving}>{saving ? 'Criando…' : 'Criar conta'}</button>
+      </div>
+    </form>
+  );
+}
+
+function PasswordForm({ onSave, saving }) {
+  const [formError, setFormError] = useState('');
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+
+  async function submit(event) {
+    event.preventDefault();
+    setFormError('');
+    if (novaSenha !== confirmation) {
+      setFormError('As senhas novas não conferem.');
+      return;
+    }
+    try {
+      await onSave({ senhaAtual, novaSenha });
+    } catch (error) {
+      setFormError(error.message);
+    }
+  }
+
+  return (
+    <form className="form-card password-form" onSubmit={submit}>
+      <div className="form-heading"><div><p className="eyebrow">SEGURANÇA</p><h3>Alterar senha</h3></div></div>
+      <ErrorMessage>{formError}</ErrorMessage>
+      <div className="form-grid">
+        <label className="field field-wide">Senha atual
+          <input required type="password" autoComplete="current-password" value={senhaAtual} onChange={(event) => setSenhaAtual(event.target.value)} />
+        </label>
+        <label className="field">Nova senha
+          <input required type="password" minLength="12" maxLength="128" autoComplete="new-password" value={novaSenha} onChange={(event) => setNovaSenha(event.target.value)} />
+          <span className="field-hint">Mínimo de 12 caracteres.</span>
+        </label>
+        <label className="field">Confirmar nova senha
+          <input required type="password" minLength="12" maxLength="128" autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
+        </label>
+      </div>
+      <p className="form-hint">Depois da alteração, você precisará entrar novamente.</p>
+      <div className="form-actions"><button className="button button-primary" type="submit" disabled={saving}>{saving ? 'Alterando…' : 'Atualizar senha'}</button></div>
+    </form>
+  );
+}
+
+function Dashboard({ user, onLogout, onPasswordChanged }) {
+  const isAdmin = user.papel === 'admin';
   const [page, setPage] = useState('inicio');
   const [rooms, setRooms] = useState([]);
   const [reservations, setReservations] = useState([]);
+  const [users, setUsers] = useState([]);
   const [apiOnline, setApiOnline] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -237,6 +400,7 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [roomForm, setRoomForm] = useState(null);
   const [reservationForm, setReservationForm] = useState(null);
+  const [userForm, setUserForm] = useState(false);
   const [filters, setFilters] = useState({ situacao: '', data: '' });
 
   const loadData = useCallback(async () => {
@@ -260,6 +424,20 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      setUsers(await api.listUsers());
+    } catch (loadError) {
+      setError(loadError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin && page === 'usuarios') {
+      loadUsers();
+    }
+  }, [isAdmin, loadUsers, page]);
 
   const visibleReservations = useMemo(() => reservations.filter((reservation) => (
     (!filters.situacao || reservation.situacao === filters.situacao)
@@ -328,6 +506,37 @@ export default function App() {
     await runAction(() => api.deleteRoom(room._id), 'Sala removida.');
   }
 
+  async function saveUser(data) {
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const created = await api.createUser(data);
+      setUsers((current) => [...current, { ...created, ativo: true }].sort((a, b) => a.nome.localeCompare(b.nome)));
+      setUserForm(false);
+      setNotice(`Conta criada para ${created.email}.`);
+    } catch (saveError) {
+      setError(saveError.message);
+      throw saveError;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function logout() {
+    setError('');
+    try {
+      await onLogout();
+    } catch (logoutError) {
+      setError(logoutError.message);
+    }
+  }
+
+  async function updateOwnPassword(data) {
+    await api.changePassword(data);
+    onPasswordChanged();
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -340,6 +549,8 @@ export default function App() {
             ['inicio', '⌂', 'Visão geral'],
             ['reservas', '▦', 'Reservas'],
             ['salas', '▤', 'Salas'],
+            ...(isAdmin ? [['usuarios', '♙', 'Usuários']] : []),
+            ['conta', '⚙', 'Minha conta'],
           ].map(([key, icon, label]) => (
             <button key={key} className={`nav-link ${page === key ? 'active' : ''}`} type="button" aria-current={page === key ? 'page' : undefined} onClick={() => { setPage(key); setError(''); setNotice(''); }}>
               <span className="nav-icon" aria-hidden="true">{icon}</span>{label}
@@ -349,7 +560,7 @@ export default function App() {
         </nav>
         <div className="sidebar-bottom">
           <div className={`connection ${apiOnline ? 'connected' : apiOnline === false ? 'disconnected' : ''}`}><span className="connection-dot" />{apiOnline ? 'API conectada' : apiOnline === false ? 'API indisponível' : 'Conectando…'}</div>
-          <p>Gestão simples de espaços e encontros.</p>
+          <p className="account-summary">{user.nome}<br />{isAdmin ? 'Administrador' : 'Solicitante'}</p>
         </div>
       </aside>
 
@@ -357,8 +568,10 @@ export default function App() {
         <header className="topbar">
           <div><span className="breadcrumb">Nexo <span aria-hidden="true">/</span> {pageNames[page]}</span><h1>{pageNames[page]}</h1></div>
           <div className="topbar-actions">
+            <span className="topbar-user">{user.nome}</span>
             <button className="button button-quiet refresh-button" type="button" onClick={loadData} disabled={loading} aria-label="Atualizar dados">↻ <span>Atualizar</span></button>
             <button className="button button-primary" type="button" onClick={() => { setReservationForm({}); setPage('reservas'); setError(''); }}><span aria-hidden="true">＋</span> Nova reserva</button>
+            <button className="button button-quiet logout-button" type="button" onClick={logout}>Sair</button>
           </div>
         </header>
 
@@ -381,14 +594,14 @@ export default function App() {
               </div>
               <section className="section-block">
                 <div className="section-heading"><div><p className="eyebrow">AGENDA</p><h2>Reservas de hoje</h2></div><button className="text-button" type="button" onClick={() => { setPage('reservas'); setFilters({ situacao: '', data: today() }); }}>Ver todas <span aria-hidden="true">→</span></button></div>
-                {todayReservations.length ? <div className="reservation-list">{todayReservations.sort((a, b) => a.inicio.localeCompare(b.inicio)).map((item) => <ReservationCard key={item._id} reservation={item} rooms={rooms} busy={busyId === item._id} onEdit={(reservation) => { setReservationForm(reservation); setPage('reservas'); }} onCancel={cancelReservation} onStatusChange={updateStatus} />)}</div> : <div className="empty-state"><span className="empty-icon">◷</span><h3>Nenhuma reserva para hoje</h3><p>Quando houver reservas, elas aparecerão nesta agenda.</p><button className="button button-outline" type="button" onClick={() => { setReservationForm(null); setPage('reservas'); }}>Criar reserva</button></div>}
+                {todayReservations.length ? <div className="reservation-list">{todayReservations.sort((a, b) => a.inicio.localeCompare(b.inicio)).map((item) => <ReservationCard key={item._id} reservation={item} rooms={rooms} user={user} busy={busyId === item._id} onEdit={(reservation) => { setReservationForm(reservation); setPage('reservas'); }} onCancel={cancelReservation} onStatusChange={updateStatus} />)}</div> : <div className="empty-state"><span className="empty-icon">◷</span><h3>Nenhuma reserva para hoje</h3><p>Quando houver reservas, elas aparecerão nesta agenda.</p><button className="button button-outline" type="button" onClick={() => { setReservationForm({}); setPage('reservas'); }}>Criar reserva</button></div>}
               </section>
             </>
           )}
 
           {!loading && page === 'salas' && (
             <section className="section-block page-section">
-              <div className="section-heading"><div><p className="eyebrow">ESPAÇOS DA INSTITUIÇÃO</p><h2>Salas cadastradas <span className="heading-count">{rooms.length}</span></h2></div><button className="button button-primary" type="button" onClick={() => setRoomForm(roomForm ? null : {})}>＋ Adicionar sala</button></div>
+              <div className="section-heading"><div><p className="eyebrow">ESPAÇOS DA INSTITUIÇÃO</p><h2>Salas cadastradas <span className="heading-count">{rooms.length}</span></h2></div>{isAdmin && <button className="button button-primary" type="button" onClick={() => setRoomForm(roomForm ? null : {})}>＋ Adicionar sala</button>}</div>
               {roomForm && <RoomForm key={roomForm._id || 'new-room'} initial={roomForm._id ? roomForm : null} onSave={saveRoom} onCancel={() => setRoomForm(null)} saving={saving} />}
               {rooms.length ? <div className="room-grid">{rooms.map((room, index) => (
                 <article className="room-card" key={room._id}>
@@ -396,23 +609,50 @@ export default function App() {
                   <div className="room-card-body"><div className="room-title-row"><h3>{room.nome}</h3><span className="capacity"><span aria-hidden="true">♧</span> {room.capacidade} lugares</span></div>
                     <p className="room-floor">{room.andar}º andar</p>
                     <div className="resource-list">{room.recursos?.length ? room.recursos.map((resource) => <span className="resource-tag" key={resource}>{resource}</span>) : <span className="resource-empty">Sem recursos cadastrados</span>}</div>
-                    <div className="room-actions"><button className="text-button" type="button" onClick={() => setRoomForm(room)}>Editar sala</button><button className="text-button danger-text" type="button" onClick={() => deleteRoom(room)}>Remover</button><button className="text-button room-reserve" type="button" onClick={() => { setReservationForm({ salaId: room._id }); setPage('reservas'); }}>Reservar <span aria-hidden="true">→</span></button></div>
+                    <div className="room-actions">{isAdmin && <><button className="text-button" type="button" onClick={() => setRoomForm(room)}>Editar sala</button><button className="text-button danger-text" type="button" onClick={() => deleteRoom(room)}>Remover</button></>}<button className="text-button room-reserve" type="button" onClick={() => { setReservationForm({ salaId: room._id }); setPage('reservas'); }}>Reservar <span aria-hidden="true">→</span></button></div>
                   </div>
                 </article>
-              ))}</div> : !roomForm && <div className="empty-state"><span className="empty-icon">▤</span><h3>Comece cadastrando uma sala</h3><p>Adicione capacidade e recursos para que ela possa receber reservas.</p><button className="button button-primary" type="button" onClick={() => setRoomForm({})}>Adicionar primeira sala</button></div>}
+              ))}</div> : !roomForm && <div className="empty-state"><span className="empty-icon">▤</span><h3>{isAdmin ? 'Comece cadastrando uma sala' : 'Nenhuma sala cadastrada'}</h3><p>{isAdmin ? 'Adicione capacidade e recursos para que ela possa receber reservas.' : 'As salas cadastradas pela instituição aparecerão aqui.'}</p>{isAdmin && <button className="button button-primary" type="button" onClick={() => setRoomForm({})}>Adicionar primeira sala</button>}</div>}
             </section>
           )}
 
           {!loading && page === 'reservas' && (
             <section className="section-block page-section">
               <div className="section-heading"><div><p className="eyebrow">AGENDA DA INSTITUIÇÃO</p><h2>Todas as reservas <span className="heading-count">{visibleReservations.length}</span></h2></div><button className="button button-primary" type="button" onClick={() => setReservationForm({})}>＋ Nova reserva</button></div>
-              {reservationForm !== null && <ReservationForm key={reservationForm._id || reservationForm.salaId || 'new-reservation'} initial={reservationForm._id ? reservationForm : null} rooms={rooms} onSave={saveReservation} onCancel={() => setReservationForm(null)} saving={saving} />}
+              {reservationForm !== null && <ReservationForm key={reservationForm._id || reservationForm.salaId || 'new-reservation'} initial={reservationForm._id ? reservationForm : null} rooms={rooms} user={user} onSave={saveReservation} onCancel={() => setReservationForm(null)} saving={saving} />}
               <div className="filter-bar">
                 <label className="filter-field">Data <input type="date" value={filters.data} onChange={(event) => setFilters({ ...filters, data: event.target.value })} /></label>
                 <label className="filter-field">Situação <select value={filters.situacao} onChange={(event) => setFilters({ ...filters, situacao: event.target.value })}><option value="">Todas</option><option value="pendente">Pendente</option><option value="aprovada">Aprovada</option><option value="cancelada">Cancelada</option></select></label>
                 {(filters.data || filters.situacao) && <button className="text-button clear-filters" type="button" onClick={() => setFilters({ data: '', situacao: '' })}>Limpar filtros</button>}
               </div>
-              {visibleReservations.length ? <div className="reservation-list">{visibleReservations.map((reservation) => <ReservationCard key={reservation._id} reservation={reservation} rooms={rooms} busy={busyId === reservation._id} onEdit={(item) => setReservationForm(item)} onCancel={cancelReservation} onStatusChange={updateStatus} />)}</div> : <div className="empty-state"><span className="empty-icon">◷</span><h3>Nenhuma reserva encontrada</h3><p>{reservations.length ? 'Tente ajustar os filtros selecionados.' : 'As novas solicitações aparecerão aqui.'}</p>{!reservations.length && <button className="button button-primary" type="button" onClick={() => setReservationForm({})}>Criar primeira reserva</button>}</div>}
+              {visibleReservations.length ? <div className="reservation-list">{visibleReservations.map((reservation) => <ReservationCard key={reservation._id} reservation={reservation} rooms={rooms} user={user} busy={busyId === reservation._id} onEdit={(item) => setReservationForm(item)} onCancel={cancelReservation} onStatusChange={updateStatus} />)}</div> : <div className="empty-state"><span className="empty-icon">◷</span><h3>Nenhuma reserva encontrada</h3><p>{reservations.length ? 'Tente ajustar os filtros selecionados.' : 'As novas solicitações aparecerão aqui.'}</p><button className="button button-primary" type="button" onClick={() => setReservationForm({})}>Criar primeira reserva</button></div>}
+            </section>
+          )}
+
+          {!loading && page === 'usuarios' && isAdmin && (
+            <section className="section-block page-section">
+              <div className="section-heading"><div><p className="eyebrow">CONTAS DA INSTITUIÇÃO</p><h2>Usuários cadastrados <span className="heading-count">{users.length}</span></h2></div><button className="button button-primary" type="button" onClick={() => setUserForm((current) => !current)}>＋ Criar conta</button></div>
+              {userForm && <UserForm onSave={saveUser} onCancel={() => setUserForm(false)} saving={saving} />}
+              {users.length > 0 ? <div className="user-list">{users.map((account) => (
+                <article className="user-card" key={account.id}>
+                  <span className="user-avatar" aria-hidden="true">{account.nome.slice(0, 1).toUpperCase()}</span>
+                  <div className="user-info"><h3>{account.nome}</h3><p>{account.email}</p></div>
+                  <span className={`user-role ${account.papel}`}>{account.papel === 'admin' ? 'Administrador' : 'Solicitante'}</span>
+                  <span className={`user-state ${account.ativo ? 'active' : ''}`}>{account.ativo ? 'Ativo' : 'Desativado'}</span>
+                </article>
+              ))}</div> : !userForm && <div className="empty-state"><span className="empty-icon">♙</span><h3>Nenhuma conta encontrada</h3><p>Crie contas para os solicitantes da instituição.</p></div>}
+            </section>
+          )}
+
+          {!loading && page === 'conta' && (
+            <section className="section-block page-section">
+              <div className="section-heading"><div><p className="eyebrow">PERFIL E SEGURANÇA</p><h2>Minha conta</h2></div></div>
+              <article className="account-card">
+                <span className="user-avatar" aria-hidden="true">{user.nome.slice(0, 1).toUpperCase()}</span>
+                <div className="user-info"><h3>{user.nome}</h3><p>{user.email}</p></div>
+                <span className={`user-role ${user.papel}`}>{isAdmin ? 'Administrador' : 'Solicitante'}</span>
+              </article>
+              <PasswordForm onSave={updateOwnPassword} saving={saving} />
             </section>
           )}
         </section>
@@ -420,4 +660,65 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [authError, setAuthError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    const expireSession = () => {
+      if (active) {
+        setUser(null);
+        setAuthError('Sua sessão expirou. Entre novamente.');
+      }
+    };
+    window.addEventListener('nexo:unauthorized', expireSession);
+    api.session()
+      .then((result) => {
+        if (active) setUser(result.user);
+      })
+      .catch((error) => {
+        if (active) setAuthError(error.message);
+      })
+      .finally(() => {
+        if (active) setCheckingSession(false);
+      });
+    return () => {
+      active = false;
+      window.removeEventListener('nexo:unauthorized', expireSession);
+    };
+  }, []);
+
+  async function login(credentials) {
+    try {
+      const result = await api.login(credentials);
+      setUser(result.user);
+      setAuthError('');
+    } catch (error) {
+      setAuthError(error.message);
+      throw error;
+    }
+  }
+
+  async function logout() {
+    await api.logout();
+    setUser(null);
+    setAuthError('');
+  }
+
+  function passwordChanged() {
+    setUser(null);
+    setAuthError('Senha alterada. Entre novamente com a nova senha.');
+  }
+
+  if (checkingSession) {
+    return <div className="auth-loading" role="status">Verificando sua sessão…</div>;
+  }
+  if (!user) {
+    return <LoginPage onLogin={login} error={authError} onClearError={() => setAuthError('')} />;
+  }
+  return <Dashboard key={user.id} user={user} onLogout={logout} onPasswordChanged={passwordChanged} />;
 }

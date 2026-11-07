@@ -61,8 +61,11 @@ async function assertNoConflict(data, session, excludedId) {
   }
 }
 
-async function listReservations(filters) {
+async function listReservations(filters, user) {
   const criteria = {};
+  if (user.papel !== 'admin') {
+    criteria.usuarioId = user.id;
+  }
   if (filters.salaId) {
     criteria.salaId = filters.salaId;
   }
@@ -81,16 +84,24 @@ async function listReservations(filters) {
   return Reserva.find(criteria).sort({ data: 1, inicio: 1 }).lean();
 }
 
-async function getReservation(id) {
-  const reservation = await Reserva.findById(id).lean();
+async function getReservation(id, user) {
+  const criteria = user.papel === 'admin' ? { _id: id } : { _id: id, usuarioId: user.id };
+  const reservation = await Reserva.findOne(criteria).lean();
   if (!reservation) {
     throw new AppError('Reserva não encontrada.', 404);
   }
   return reservation;
 }
 
-async function createReservation(payload) {
-  const data = validateReservationInput(payload);
+async function createReservation(payload, user) {
+  if (user.papel !== 'admin' && payload?.situacao && payload.situacao !== 'pendente') {
+    throw new AppError('Solicitantes só podem criar reservas pendentes.', 403);
+  }
+  const input = user.papel === 'admin'
+    ? payload
+    : { ...payload, responsavel: user.nome, situacao: 'pendente' };
+  const data = validateReservationInput(input);
+  data.usuarioId = user.id;
   return Reserva.db.transaction(async (session) => {
     const room = await lockRoom(session, data.salaId);
     await assertCapacity(room, data.quantidadeParticipantes);
@@ -101,10 +112,16 @@ async function createReservation(payload) {
   });
 }
 
-async function updateReservation(id, payload) {
+async function updateReservation(id, payload, user, { requesterCancellation = false } = {}) {
   const changes = validateReservationInput(payload, { partial: true });
+  if (user.papel !== 'admin'
+    && ((!requesterCancellation && Object.hasOwn(changes, 'situacao'))
+      || Object.hasOwn(changes, 'responsavel'))) {
+    throw new AppError('Solicitantes não podem alterar a situação ou o responsável da reserva.', 403);
+  }
   return Reserva.db.transaction(async (session) => {
-    const current = await Reserva.findById(id).session(session);
+    const criteria = user.papel === 'admin' ? { _id: id } : { _id: id, usuarioId: user.id };
+    const current = await Reserva.findOne(criteria).session(session);
     if (!current) {
       throw new AppError('Reserva não encontrada.', 404);
     }
@@ -121,11 +138,11 @@ async function updateReservation(id, payload) {
   });
 }
 
-async function cancelReservation(id) {
-  return updateReservation(id, { situacao: 'cancelada' });
+async function cancelReservation(id, user) {
+  return updateReservation(id, { situacao: 'cancelada' }, user, { requesterCancellation: true });
 }
 
-async function getAvailability(roomId, query) {
+async function getAvailability(roomId, query, user) {
   const { data, inicio, fim } = query;
   if (!isValidDate(data)) {
     throw new AppError('A data deve ser válida e estar no formato AAAA-MM-DD.');
@@ -147,7 +164,14 @@ async function getAvailability(roomId, query) {
     fim: { $gt: inicio },
   }).sort({ inicio: 1 }).lean();
 
-  return { salaId: roomId, data, inicio, fim, disponivel: conflicts.length === 0, conflitos: conflicts };
+  const safeConflicts = user.papel === 'admin'
+    ? conflicts
+    : conflicts.map(({ _id, inicio: conflictStart, fim: conflictEnd }) => ({
+      _id,
+      inicio: conflictStart,
+      fim: conflictEnd,
+    }));
+  return { salaId: roomId, data, inicio, fim, disponivel: conflicts.length === 0, conflitos: safeConflicts };
 }
 
 module.exports = {

@@ -23,7 +23,7 @@ async function remove(req, res) {
 }
 
 async function availability(req, res) {
-  res.json(await reservaService.getAvailability(req.params.id, req.query));
+  res.json(await reservaService.getAvailability(req.params.id, req.query, req.user));
 }
 
 module.exports = { availability, create, get, list, remove, update };

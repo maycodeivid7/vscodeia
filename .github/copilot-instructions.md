@@ -10,20 +10,11 @@ A implementação deverá evoluir a partir do código existente, respeitando a a
 
 ### 1.1. Estado Atual do Projeto
 
-O repositório contém atualmente o arquivo `index.html`, que implementa uma tela de login estática.
+O projeto está organizado em `frontend/` (React e Vite) e `backend/` (Node.js, Express e MongoDB). O frontend integrado oferece painel para salas e reservas. A API já valida conflitos e capacidade em transações.
 
-Considere esse arquivo como um protótipo visual e funcional limitado.
+A autenticação por e-mail e senha, sessões em cookie `HttpOnly`, criação de contas por administradores e autorização de papéis `admin` e `solicitante` estão implementadas no backend e no frontend. A primeira conta administrativa é criada pelo comando `npm run create-admin`.
 
-**Não presuma que as seguintes funcionalidades já estejam implementadas:**
-- Aplicação React;
-- Backend Node.js com Express.js;
-- APIs REST;
-- Banco de dados MongoDB;
-- Sistema de autenticação;
-- Integração com o Google;
-- Cadastro e gerenciamento de salas;
-- Cadastro e gerenciamento de reservas;
-- Sistema de notificações.
+A autenticação com Google e as notificações ainda não estão implementadas. Não as apresente como funcionais.
 
 Ao implementar novas funcionalidades, diferencie claramente o código existente, as funcionalidades efetivamente implementadas e os componentes ainda planejados.
 
@@ -147,9 +138,9 @@ Reservas pendentes e aprovadas deverão ser consideradas conforme a política de
 
 ### 3.4. Autenticação e Notificações
 
-A arquitetura prevê funcionalidades de autenticação e notificações.
+A autenticação local por e-mail e senha está implementada. Não há cadastro público: o primeiro administrador é inicializado pelo comando local; depois, administradores criam contas. Senhas são armazenadas com scrypt; sessões revogáveis são persistidas no MongoDB e entregues em cookies `HttpOnly`.
 
-Entretanto, esses recursos somente deverão ser considerados implementados quando houver código funcional e integração correspondente.
+Todos os endpoints de salas e reservas exigem sessão. Solicitantes podem consultar salas, criar reservas pendentes e alterar/cancelar somente as próprias; administradores gerenciam salas e todas as reservas, inclusive aprovações. As permissões devem ser verificadas no backend, mesmo quando também forem refletidas pela interface.
 
 A autenticação com Google não deverá ser apresentada como funcional enquanto não existir uma integração real com o provedor.
 
@@ -267,7 +258,7 @@ Não remova recursos de acessibilidade para simplificar a implementação.
 
 ## 6. Comportamento dos Formulários
 
-Enquanto o login permanecer no protótipo estático, preserve os seguintes comportamentos:
+Nos formulários de autenticação e conta, preserve:
 
 - Campos semânticos;
 - Validação nativa do HTML;

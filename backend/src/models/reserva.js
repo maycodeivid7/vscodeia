@@ -4,6 +4,7 @@ const { RESERVATION_STATUSES } = require('../utils/reservation-rules');
 
 const reservaSchema = new mongoose.Schema({
   _id: { type: String, default: () => randomUUID() },
+  usuarioId: { type: String, ref: 'User', index: true },
   salaId: { type: String, ref: 'Sala', required: true, index: true },
   data: { type: String, required: true },
   inicio: { type: String, required: true },

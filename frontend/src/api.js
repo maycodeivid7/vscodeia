@@ -1,6 +1,7 @@
 async function request(path, options = {}) {
   const response = await fetch(`/api${path}`, {
     ...options,
+    credentials: 'include',
     headers: {
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
@@ -13,6 +14,9 @@ async function request(path, options = {}) {
 
   const result = await response.json().catch(() => null);
   if (!response.ok) {
+    if (response.status === 401 && path !== '/auth/login' && path !== '/auth/session') {
+      window.dispatchEvent(new Event('nexo:unauthorized'));
+    }
     throw new Error(result?.erro || `Não foi possível concluir a solicitação (${response.status}).`);
   }
   return result;
@@ -23,6 +27,12 @@ function send(method, body) {
 }
 
 export const api = {
+  session: () => request('/auth/session'),
+  login: (credentials) => request('/auth/login', send('POST', credentials)),
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  changePassword: (data) => request('/auth/password', send('PATCH', data)),
+  listUsers: () => request('/auth/users'),
+  createUser: (data) => request('/auth/users', send('POST', data)),
   health: () => request('/health'),
   listRooms: () => request('/salas'),
   createRoom: (data) => request('/salas', send('POST', data)),

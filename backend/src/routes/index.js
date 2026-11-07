@@ -1,7 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const authRoutes = require('./auth-routes');
 const salaRoutes = require('./sala-routes');
 const reservaRoutes = require('./reserva-routes');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -12,6 +14,8 @@ router.get('/health', (req, res) => {
     database: connected ? 'conectado' : 'desconectado',
   });
 });
+router.use('/auth', authRoutes);
+router.use(requireAuth);
 router.use('/salas', salaRoutes);
 router.use('/reservas', reservaRoutes);
 
