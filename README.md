@@ -64,6 +64,8 @@ Em produção, defina `NODE_ENV=production` para habilitar o atributo `Secure` n
 
 ## Endpoints
 
+Explore a documentação interativa da API em `http://localhost:3000/api/docs`; o documento OpenAPI em JSON está disponível em `http://localhost:3000/api/docs/openapi.json`. Para testar operações protegidas no Swagger UI, autentique-se pela aplicação no mesmo navegador. O WebSocket autenticado de notificações usa `ws://localhost:3000/api/notifications/stream` (em produção, `wss://`).
+
 - `GET /api/health` — estado da API e conexão com o banco;
 - `POST /api/auth/login` — autentica com `email` e `senha`, criando sessão;
 - `POST /api/auth/logout` — revoga a sessão atual;
